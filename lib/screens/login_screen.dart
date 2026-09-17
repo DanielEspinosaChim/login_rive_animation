@@ -25,42 +25,28 @@ class _LoginScreenState extends State<LoginScreen> {
   SMIInput<double>? _numLook; //controla hacia donde mira el oso (0-100)
 
   //un FocusNode por campo: toda la animacion se controla exclusivamente desde aqui
+  //crear variables para focus node
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
-
+  //PASO 1.2 cerar un listener para el focus node, para saber cuando el usuario esta escribiendo en el campo de texto
   @override
   void initState() {
     super.initState();
 
     _emailFocusNode.addListener(() {
       if (_emailFocusNode.hasFocus) {
-        //al entrar al campo, el oso voltea a ver una sola vez (no lo sigue mientras escribes)
-        _isHandsUp?.change(false);
-        _numLook?.change(50);
-        _isChecking?.change(true);
-      } else {
-        //al salir del campo deja de voltear
-        _isChecking?.change(false);
+        //Verificar que no sea nulo
+        if (_isHandsUp != null) {
+          //Manos arriba en el email
+          _isHandsUp?.change(false);
+        }
       }
     });
 
     _passwordFocusNode.addListener(() {
-      if (_passwordFocusNode.hasFocus) {
-        //el oso se tapa los ojos con la contraseña
-        _isChecking?.change(false);
-        _isHandsUp?.change(true);
-      } else {
-        //al salir del campo se destapa
-        _isHandsUp?.change(false);
-      }
+      //Manos arriba en password
+      _isHandsUp?.change(_passwordFocusNode.hasFocus);
     });
-  }
-
-  @override
-  void dispose() {
-    _emailFocusNode.dispose();
-    _passwordFocusNode.dispose();
-    super.dispose();
   }
 
   @override
@@ -139,4 +125,12 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+  //1.4 liberar recursos al salir de la pantalla
+  @override
+  void dispose() {
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
 }
+
