@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
-
+import 'dart:async'; //inmportar el timer;
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -22,7 +22,12 @@ class _LoginScreenState extends State<LoginScreen> {
   SMIInput<bool>? _isChecking; //para controlar el estado de la cabeza
   SMIInput<bool>? _trigSuccess; //para controlar el estado de la cabeza
   SMIInput<bool>? _trigFail; //para controlar el estado de la cabeza
+  
+  //2.1 veriable para el recorrido de la mirada
   SMIInput<double>? _numLook; //controla hacia donde mira el oso (0-100)
+
+  //3.2 timer para deter la mirada al dejar de escribir
+  Timer? _typingDebounce;
 
   //un FocusNode por campo: toda la animacion se controla exclusivamente desde aqui
   //crear variables para focus node
@@ -39,6 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (_isHandsUp != null) {
           //Manos arriba en el email
           _isHandsUp?.change(false);
+          //2.2 Mirada neutral 
+          _numLook?.value = 50;
         }
       }
     });
@@ -77,6 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   _isHandsUp = _controller?.findSMI('isHandsUp');
                   _trigSuccess = _controller?.findSMI('trigSuccess');
                   _trigFail = _controller?.findSMI('trigFail');
+                  //2.3 vincular la variable de _numLook con la entrada de la state machine
                   _numLook = _controller?.findSMI('numLook');
                 },
                 ),
@@ -87,6 +95,26 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 focusNode: _emailFocusNode,
                 keyboardType: TextInputType.emailAddress,
+                //PASO 2.4: mover la mirada del oso segun cuanto texto lleva escrito
+                onChanged: (value) {
+                  //guard clause: si la state machine aun no esta lista, no hacer nada
+                  if (_isChecking == null) return;
+                  _isChecking?.change(true);
+                  //calibracion: a los 80 caracteres el oso ya mira al 100%
+                  //clamp(0.0, 1.0) limita el resultado entre 0 y 1 antes de pasarlo a 0-100
+                  final look = (value.length / 80).clamp(0.0, 1.0) * 100;
+                  _numLook?.change(look);
+
+                  //3.3 debounce: cada vez que se vuelve a teclear, se reinicia el contador
+                  _typingDebounce?.cancel();
+                  //crear un nuevo timer
+                  _typingDebounce = Timer(const Duration(seconds: 3), () {
+                    //cuando el timer se cumple (dejaste de escribir 3s), el oso vuelve a neutral
+                    if (!mounted) return;
+                    _isChecking?.change(false);
+                    _numLook?.change(50);
+                  });
+                },
                 decoration: InputDecoration(
                   hintText: 'Email',
                   prefixIcon: const Icon(Icons.email),
@@ -130,7 +158,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
+    //liberar el timer
+    _typingDebounce?.cancel();
     super.dispose();
+
   }
 }
 
