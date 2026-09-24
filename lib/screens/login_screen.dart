@@ -7,7 +7,7 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
+//TextFieldController controla lo que obtiene lo que el suario escribe en el campo de texto
 
 class _LoginScreenState extends State<LoginScreen> {
   //control para ocultal y mostrar contraseña
@@ -20,20 +20,65 @@ class _LoginScreenState extends State<LoginScreen> {
   //SMI: State Machine Input
   SMIInput<bool>? _isHandsUp; //para controlar el estado de las manos
   SMIInput<bool>? _isChecking; //para controlar el estado de la cabeza
-  SMIInput<bool>? _trigSuccess; //para controlar el estado de la cabeza
-  SMIInput<bool>? _trigFail; //para controlar el estado de la cabeza
+  SMITrigger? _trigSuccess; //dispara la animacion de login correcto
+  SMITrigger? _trigFail; //dispara la animacion de login fallido
   
-  //2.1 veriable para el recorrido de la mirada
+  //2.1 variable para el recorrido de la mirada
   SMIInput<double>? _numLook; //controla hacia donde mira el oso (0-100)
 
-  //3.2 timer para deter la mirada al dejar de escribir
+  //3.1 timer para detener la mirada al dejar de escribir
   Timer? _typingDebounce;
 
-  //un FocusNode por campo: toda la animacion se controla exclusivamente desde aqui
-  //crear variables para focus node
+  //1.1 un FocusNode por campo: toda la animacion se controla exclusivamente desde aqui
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
-  //PASO 1.2 cerar un listener para el focus node, para saber cuando el usuario esta escribiendo en el campo de texto
+  //4.1 controller para manipular el texto escrito por el usuario 
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  //4.2 errores apra mostar al usuario UI 
+  String?emailError;
+  String?passwordError;
+
+  //4.3 validadores de email y contrasena
+  bool isValidEmail(String email) {
+    //expresion regular para validar el email
+    final re = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return re.hasMatch(email);
+  }
+  bool isValidPassword(String password) {
+    //expresion regular para validar la contraseña
+    final re = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$',); 
+    return re.hasMatch(password);
+  }
+  //4.4 accion al boton de login
+  void _onLoguin(){
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    //recalcular los errores
+    final eError = isValidEmail(email) ? null : 'Invalid email';
+    final pError = isValidPassword(password) ? null : 'Invalid password';
+
+    setState(() {
+      emailError = eError;
+      passwordError = pError;
+    });
+    //4.5 cerrar el teclado y bajar las manos
+    FocusScope.of(context).unfocus();
+    _typingDebounce?.cancel();
+    _isChecking?.change(false);
+    _isHandsUp?.change(false);
+    _numLook?.value = 50;
+
+    //4.6 activar triggers
+    if (eError == null && pError == null) {
+      _trigSuccess?.fire();
+    } else {
+      _trigFail?.fire();
+    }
+  }
+  //1.2 listeners de los focus node, para saber cuando el usuario esta escribiendo en el campo de texto
   @override
   void initState() {
     super.initState();
@@ -51,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     _passwordFocusNode.addListener(() {
-      //Manos arriba en password
+      //1.3 manos arriba en password
       _isHandsUp?.change(_passwordFocusNode.hasFocus);
     });
   }
@@ -62,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
     //para obtener el tamaño de la pantalla
     final Size size = MediaQuery.of(context).size;
     return Scaffold(
-      body: SafeArea(
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
@@ -95,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 focusNode: _emailFocusNode,
                 keyboardType: TextInputType.emailAddress,
-                //PASO 2.4: mover la mirada del oso segun cuanto texto lleva escrito
+                //2.4 mover la mirada del oso segun cuanto texto lleva escrito
                 onChanged: (value) {
                   //guard clause: si la state machine aun no esta lista, no hacer nada
                   if (_isChecking == null) return;
@@ -105,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   final look = (value.length / 80).clamp(0.0, 1.0) * 100;
                   _numLook?.change(look);
 
-                  //3.3 debounce: cada vez que se vuelve a teclear, se reinicia el contador
+                  //3.2 debounce: cada vez que se vuelve a teclear, se reinicia el contador
                   _typingDebounce?.cancel();
                   //crear un nuevo timer
                   _typingDebounce = Timer(const Duration(seconds: 3), () {
@@ -115,7 +160,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     _numLook?.change(50);
                   });
                 },
+                //4.7 enlazar el controlador de texto con el campo de email
+                controller: emailController,
                 decoration: InputDecoration(
+                  //4.8 mostrar el error del email
+                  errorText: emailError,
                   hintText: 'Email',
                   prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
@@ -127,8 +176,14 @@ class _LoginScreenState extends State<LoginScreen> {
               //campo de texto para la contraseña
               TextField(
                 focusNode: _passwordFocusNode,
+
+                //4.9 enlazar el controlador de texto con el campo de password
+                controller: passwordController,
+
                 obscureText:  _obscureText, //para ocultar la contraseña
                 decoration: InputDecoration(
+                  //4.10 mostrar el error de la contrasena
+                  errorText: passwordError,
                   hintText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
@@ -147,19 +202,61 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+                //tEXTO OLVIDE MI CONTRASEÑA
+                SizedBox(height: 10),
+                SizedBox(
+                  width: size.width,
+                  child: const Text(
+                    "Forgot Password?",
+                    textAlign: TextAlign.right,
+                    style: TextStyle(decoration: TextDecoration.underline),
+                  ),
+                ),
+                SizedBox(height: 10),
+              //4.11 boton de login
+                MaterialButton(
+                  minWidth: size.width,
+                  height: 50,
+                  onPressed: _onLoguin,
+                  color: Colors.deepPurple,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('Login', style: TextStyle(color: Colors.white, fontSize: 18)),
+                ),
+                const SizedBox(height: 20),
+                //no tienes cuenta? registrate
+                SizedBox(
+                  width: size.width,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don't have an account?"),
+                      TextButton(
+                        onPressed: () {
+                          //navegar a la pantalla de registro
+                        },
+                        child: const Text('Sign Up', style: TextStyle(color: Colors.black, decoration: TextDecoration.underline, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+
             ],
           ), // Column
         ), // Padding
       ),
     );
   }
-  //1.4 liberar recursos al salir de la pantalla
+  //1.4 liberar los focus node al salir de la pantalla
   @override
   void dispose() {
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
-    //liberar el timer
+    //3.3 liberar el timer
     _typingDebounce?.cancel();
+    emailController.dispose();
+    passwordController.dispose();
     super.dispose();
 
   }
