@@ -14,6 +14,15 @@ class _LoginScreenState extends State<LoginScreen> {
   //el giuon bajo es ina varaible ams pricada
   bool _obscureText = true;
 
+  //5.1 estado del toggle de recordar sesion
+  bool _rememberMe = false;
+
+  //5.2 bandera anti-spam: true mientras la animacion del toggle esta corriendo
+  bool _isToggleAnimating = false;
+
+  //5.3 duracion de la animacion del toggle
+  static const Duration _toggleDuration = Duration(milliseconds: 300);
+
 
   //crear un state machine
   StateMachineController? _controller; //el ? actiava la coactividad del nulo
@@ -78,6 +87,71 @@ class _LoginScreenState extends State<LoginScreen> {
       _trigFail?.fire();
     }
   }
+  //5.4 cambiar el estado del toggle, ignorando los toques mientras anima
+  void _onRememberMeTap() {
+    //guard clause anti-spam: si la animacion sigue corriendo, el toque se descarta
+    if (_isToggleAnimating) return;
+    setState(() {
+      _rememberMe = !_rememberMe;
+      _isToggleAnimating = true;
+    });
+  }
+
+  //5.5 la animacion llego a su estado de reposo: volver a habilitar la interaccion
+  void _onToggleAnimationEnd() {
+    if (!mounted) return;
+    setState(() {
+      _isToggleAnimating = false;
+    });
+  }
+
+  //5.6 toggle animado de "Remember me"
+  Widget _buildRememberMeToggle() {
+    return GestureDetector(
+      //desactivar la UI: mientras anima el onTap queda en null y el widget ignora los toques
+      onTap: _isToggleAnimating ? null : _onRememberMeTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          //el riel del switch: cambia de color al activarse
+          AnimatedContainer(
+            duration: _toggleDuration,
+            curve: Curves.easeInOut,
+            //onEnd avisa cuando la animacion termino, ahi se libera la bandera
+            onEnd: _onToggleAnimationEnd,
+            width: 52,
+            height: 30,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: _rememberMe ? Colors.deepPurple : Colors.grey.shade400,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            //la perilla: se desliza de izquierda a derecha
+            child: AnimatedAlign(
+              duration: _toggleDuration,
+              curve: Curves.easeInOut,
+              alignment:
+                  _rememberMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: const SizedBox(
+                width: 24,
+                height: 24,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text('Remember me'),
+        ],
+      ),
+    );
+  }
+
   //1.2 listeners de los focus node, para saber cuando el usuario esta escribiendo en el campo de texto
   @override
   void initState() {
@@ -202,16 +276,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-                //tEXTO OLVIDE MI CONTRASEÑA
-                SizedBox(height: 10),
-                SizedBox(
-                  width: size.width,
-                  child: const Text(
+              //5.7 fila con el toggle de recordarme y el texto de olvide mi contrasena
+              SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildRememberMeToggle(),
+                  //tEXTO OLVIDE MI CONTRASEÑA
+                  const Text(
                     "Forgot Password?",
-                    textAlign: TextAlign.right,
                     style: TextStyle(decoration: TextDecoration.underline),
                   ),
-                ),
+                ],
+              ),
                 SizedBox(height: 10),
               //4.11 boton de login
                 MaterialButton(
